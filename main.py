@@ -1,3 +1,5 @@
+#Importing important libraries
+
 import os
 import pandas as pd
 import mysql.connector
@@ -8,7 +10,6 @@ import numpy as np
 import wget
 import random
 import warnings
-
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from qdrant_client import QdrantClient
@@ -17,6 +18,7 @@ from qdrant_client.http import models as rest
 from qdrant_client import models, QdrantClient
 from sentence_transformers import SentenceTransformer
 
+#selcting a sentence transformer model from huggingface
 encoder = SentenceTransformer('all-MiniLM-L6-v2')
 
 ##using local computer memory as temporary storage
@@ -28,7 +30,6 @@ warnings.filterwarnings(action="ignore", message="unclosed", category=ResourceWa
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 load_dotenv()
-openai_key = os.getenv("OPENAI_API_KEY")
 
 # MySQL database connection details
 db_config = {
@@ -136,12 +137,12 @@ async def create_embeddings(request: Request):
             vector_size = len(df1['vector_embeds'][0])
             print("The size of vector is :",vector_size)
 
-            #again recreating collection
+            #Creating collection
             print("Creating collection")
             client.recreate_collection(
             collection_name=current_collection_name,
             vectors_config={
-                'title_tags': rest.VectorParams(
+                'col1andcol2': rest.VectorParams(
                     distance=rest.Distance.COSINE,
                     size=vector_size,
                 ),
@@ -186,81 +187,52 @@ async def read_conversation(request: Request,query: str = None):
         print("API key is not available in DB")
         return {"Status":"Unauthorized", "message":"This Brand/API is not available"}
     else:
-        
         print("Sending query for similarity search to Qdrant")
         current_collection_name=api_key
         print("The user query is:",query)
+        #Below is the query for OpenAI qdrant
         print("Searching from the collection:",current_collection_name)
         #query_results = query_qdrant(query, current_collection_name)
-        print("Trying to create query embeddings and then searching from qdrant")
+        print("Trying to created query embeddings and then searching from qdrant")
         qdrant = QdrantClient("http://qdrant-instance-url:6333")
         # Search for similar items in the Qdrant collection
-            #############################################################
+        #############################################################
 
-          ##function to create embeddings of the query and search similiarity from the VS
-          search_results=query_qdrant(query, current_collection_name, vector_name='title_tags', top_k=4)
+        ##function to create embeddings of the query and search similarity from the Vector Store
+        search_results=query_qdrant(query, current_collection_name, vector_name='col1andcol2', top_k=5)
 
-            #############################################################
+        #############################################################
 
-            query_results=search_results
-            #print(query_results)
+        query_results=search_results
+        print(query_results)
 
-            ID=''
-            Title=''
-            Price=''
-            Product_link=''
+        col1=''
+        col2=''
+        col3=''
+        col4=''
 
-            products_list = []
+        products_list = []
 
-            for i, products in enumerate(query_results):
-                # Extract data from the current product
-                ID = products.payload["ID"]
-                Title = products.payload["title"]
-                Price = products.payload["price"]
-                Product_link = products.payload["link"]
+        for i, products in enumerate(query_results):
+            # Extract data from the current product
+            col1 = products.payload["col1"]
+            col2 = products.payload["col2"]
+            col3 = products.payload["col3"]
+            col4 = products.payload["col4"]
 
-                product_data = {
-                    "ID": ID,
-                    "Title": Title,
-                    "Price": Price,
-                    "Product_link": Product_link
-                }
-                products_list.append(product_data)
-            #final_response=query_llm(query)
-            #return final_response,products_list
-            return products_list
+            product_data = {
+                "col1": col1,
+                "col2": col2,
+                "col3": col3,
+                "col4": col4
+            }
+            products_list.append(product_data)
+        return products_list
 
 
 
 
-################################################################
-##Creating Conversation API
-@app.get("/InteractiveConversations")
-async def read_conversation(request: Request,query: str = None):
-    headers = request.headers
-    api_key = headers.get('Authorization')
-    print("API KEY entered by brand is:",api_key)
-    classifier=-1
-    api_status=check_api_key(api_key)
-    if api_status is False:
-        print("API key is not available in DB")
-        return {"Status":"Unauthorized", "message":"This Brand/API is not available"}
-    else:
-        recommendation_allow_value = check_recommendation_status(api_key)
-        print(recommendation_allow_value)
-        if recommendation_allow_value==False:
-            print("API key is availbe but Recommendation status is 0")
-            return {"Status":"Unauthorized", "message":"Recommendation status of this brand is deactivated"}
-        else:
-        #now use classifier
-            classifier,reply=fixed_reply(query)
-        if classifier==0:
-            print("Bot Reply:",reply)
-            return {"Status":"Authorized", "message":reply}
-        else:
-            classifier=-1
-            print("This is not a greeting message by the. Now calling input classifier")
-            print("Sending query for smilarity seach to Qdrant")
+            print("Sending query for similarity search to Qdrant")
             current_collection_name=api_key
             print("The user query is:",query)
             #Below is the query for OpenAI qdrant
@@ -271,35 +243,33 @@ async def read_conversation(request: Request,query: str = None):
             # Search for similar items in the Qdrant collection
             #############################################################
 
-            ##function to create embeddings of the query and search similiarity from the VS
-            search_results=query_qdrant(query, current_collection_name, vector_name='title_tags', top_k=4)
+            ##function to create embeddings of the query and search similarity from the Vector Store
+            search_results=query_qdrant(query, current_collection_name, vector_name='col1andcol2', top_k=5)
 
             #############################################################
 
             query_results=search_results
             print(query_results)
 
-            ID=''
-            Title=''
-            Price=''
-            Product_link=''
+            col1=''
+            col2=''
+            col3=''
+            col4=''
 
             products_list = []
 
             for i, products in enumerate(query_results):
                 # Extract data from the current product
-                ID = products.payload["ID"]
-                Title = products.payload["title"]
-                Price = products.payload["price"]
-                Product_link = products.payload["link"]
+                col1 = products.payload["col1"]
+                col2 = products.payload["col2"]
+                col3 = products.payload["col3"]
+                col4 = products.payload["col4"]
 
                 product_data = {
-                    "ID": ID,
-                    "Title": Title,
-                    "Price": Price,
-                    "Product_link": Product_link
+                    "col1": col1,
+                    "col2": col2,
+                    "col3": col3,
+                    "col4": col4
                 }
                 products_list.append(product_data)
-            final_response=query_llm(query)
-            return final_response,products_list
             return products_list
