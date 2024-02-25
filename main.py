@@ -1,4 +1,4 @@
-#Importing important libraries
+##Importing important libraries
 
 import os
 import pandas as pd
@@ -18,12 +18,12 @@ from qdrant_client.http import models as rest
 from qdrant_client import models, QdrantClient
 from sentence_transformers import SentenceTransformer
 
-#selcting a sentence transformer model from huggingface
+##selcting a sentence transformer model from huggingface
 encoder = SentenceTransformer('all-MiniLM-L6-v2')
 
-##using local computer memory as temporary storage
+#using local computer memory as temporary storage
 #qdrant = QdrantClient(":memory:")
-#local
+## using local as a storage
 qdrant = QdrantClient("http://qdrant-instance-url:6333")
 
 warnings.filterwarnings(action="ignore", message="unclosed", category=ResourceWarning)
@@ -88,7 +88,7 @@ async def healthcheck():
 
 
 @app.get("/embeddings")
-async def create_embeddings(request: Request):
+def create_embeddings(request: Request):
     headers = request.headers
     api_key = headers.get('Authorization')
     print("Entered API_Key: ",api_key)
@@ -177,16 +177,56 @@ async def create_embeddings(request: Request):
 
 ##Creating Conversation API
 @app.get("/conversations")
-async def read_conversation(request: Request,query: str = None):
+def read_conversation(request: Request,query: str = None):
     headers = request.headers
     api_key = headers.get('Authorization')
     print("API KEY entered by brand is:",api_key)
-    classifier=-1
     api_status=check_api_key(api_key)
     if api_status is False:
         print("API key is not available in DB")
         return {"Status":"Unauthorized", "message":"This Brand/API is not available"}
     else:
+        print("Sending query for similarity search to Qdrant")
+        current_collection_name=api_key
+        print("The user query is:",query)
+        #Below is the query for OpenAI qdrant
+        print("Searching from the collection:",current_collection_name)
+        #query_results = query_qdrant(query, current_collection_name)
+        print("Trying to created query embeddings and then searching from qdrant")
+        qdrant = QdrantClient("http://qdrant-instance-url:6333")
+        # Search for similar items in the Qdrant collection
+        #############################################################
+
+        ##function to create embeddings of the query and search similarity from the Vector Store
+        search_results=query_qdrant(query, current_collection_name, vector_name='col1andcol2', top_k=5)
+
+        #############################################################
+        query_results=search_results
+        print(query_results)
+        col1=''
+        col2=''
+        col3=''
+        col4=''
+        products_list = []
+        for i, products in enumerate(query_results):
+            # Extract data from the current product
+            col1 = products.payload["col1"]
+            col2 = products.payload["col2"]
+            col3 = products.payload["col3"]
+            col4 = products.payload["col4"]
+
+            product_data = {
+                "col1": col1,
+                "col2": col2,
+                "col3": col3,
+                "col4": col4
+            }
+            products_list.append(product_data)
+        return products_list
+
+
+
+
         print("Sending query for similarity search to Qdrant")
         current_collection_name=api_key
         print("The user query is:",query)
@@ -228,48 +268,3 @@ async def read_conversation(request: Request,query: str = None):
             }
             products_list.append(product_data)
         return products_list
-
-
-
-
-            print("Sending query for similarity search to Qdrant")
-            current_collection_name=api_key
-            print("The user query is:",query)
-            #Below is the query for OpenAI qdrant
-            print("Searching from the collection:",current_collection_name)
-            #query_results = query_qdrant(query, current_collection_name)
-            print("Trying to created query embeddings and then searching from qdrant")
-            qdrant = QdrantClient("http://qdrant-instance-url:6333")
-            # Search for similar items in the Qdrant collection
-            #############################################################
-
-            ##function to create embeddings of the query and search similarity from the Vector Store
-            search_results=query_qdrant(query, current_collection_name, vector_name='col1andcol2', top_k=5)
-
-            #############################################################
-
-            query_results=search_results
-            print(query_results)
-
-            col1=''
-            col2=''
-            col3=''
-            col4=''
-
-            products_list = []
-
-            for i, products in enumerate(query_results):
-                # Extract data from the current product
-                col1 = products.payload["col1"]
-                col2 = products.payload["col2"]
-                col3 = products.payload["col3"]
-                col4 = products.payload["col4"]
-
-                product_data = {
-                    "col1": col1,
-                    "col2": col2,
-                    "col3": col3,
-                    "col4": col4
-                }
-                products_list.append(product_data)
-            return products_list
